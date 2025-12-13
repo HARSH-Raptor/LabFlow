@@ -3,13 +3,16 @@
 #Lab Randomizer & Statistical Analysis Tool
 
 A web-based, assumption-aware statistical analysis tool designed for wet-lab researchers.
-
 This project provides an end-to-end workflow for experimental data analysis, including
 randomization, distribution checks, outlier handling, appropriate test selection,
 and post-hoc comparisons — without requiring advanced statistical or programming knowledge.
-
----
-
+-----------------------------------------------------------------------------------------------------------------------------------
+Disclaimer - 
+This tool is intended to assist in statistical analysis and decision-making.
+It does not replace consultation with a statistician for complex experimental designs.
+-----------------------------------------------------------------------------------------------------------------------------------
+NOTE- This project is licensed under the Apache License 2.0.
+-----------------------------------------------------------------------------------------------------------------------------------
 ##Features
 
 - CSV-based data input
@@ -53,5 +56,10 @@ Example:
 Group,Value
 Control,5.2
 Control,5.4
+
+
+
+
+
 Treatment,8.1
 Treatment,8.3
