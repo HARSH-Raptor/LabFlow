@@ -1,6 +1,6 @@
 # LabFlow
 
-#Lab Randomizer & Statistical Analysis Tool
+# Lab Randomizer & Statistical Analysis Tool
 
 A web-based, assumption-aware statistical analysis tool designed for wet-lab researchers.
 This project provides an end-to-end workflow for experimental data analysis, including
@@ -13,6 +13,15 @@ It does not replace consultation with a statistician for complex experimental de
 -----------------------------------------------------------------------------------------------------------------------------------
 NOTE- This project is licensed under the Apache License 2.0.
 Please cite LabFlow Github repository if you use this work in academic work. 
+-----------------------------------------------------------------------------------------------------------------------------------
+## Installation & Usage
+
+```bash
+git clone https://github.com/yourusername/LabFlow.git
+cd LabFlow
+pip install -r requirements.txt
+streamlit run app.py
+```
 -----------------------------------------------------------------------------------------------------------------------------------
 ##Features
 
@@ -32,7 +41,7 @@ Please cite LabFlow Github repository if you use this work in academic work.
 
 ---
 
-##Typical Workflow
+## Typical Workflow
 
 1. Upload experimental data as a CSV file  
 2. Inspect distribution and detect outliers  
@@ -43,7 +52,7 @@ Please cite LabFlow Github repository if you use this work in academic work.
 
 ---
 
-##Input Data Format
+## Input Data Format
 
 The input CSV file must contain **two columns**:
 
