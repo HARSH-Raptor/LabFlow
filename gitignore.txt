@@ -1,0 +1,76 @@
+# ===============================
+# Python
+# ===============================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# ===============================
+# Virtual environments
+# ===============================
+venv/
+.env/
+.venv/
+env/
+
+# ===============================
+# Streamlit
+# ===============================
+.streamlit/secrets.toml
+.streamlit/config.toml
+
+# ===============================
+# Data files (local / private)
+# ===============================
+*.csv
+*.tsv
+*.xlsx
+
+# Allow example datasets if needed
+!examples/
+!examples/*.csv
+
+# ===============================
+# Test / output artifacts
+# ===============================
+output/
+results/
+reports/
+
+# ===============================
+# Logs & temp files
+# ===============================
+*.log
+*.tmp
+*.swp
+
+# ===============================
+# Jupyter
+# ===============================
+.ipynb_checkpoints/
+
+# ===============================
+# IDEs / Editors
+# ===============================
+.vscode/
+.idea/
+
+# ===============================
+# OS-specific files
+# ===============================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===============================
+# Pytest
+# ===============================
+.pytest_cache/
+
+# ===============================
+# Build / packaging (future-proof)
+# ===============================
+build/
+dist/
+*.egg-info/
