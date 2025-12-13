@@ -1,0 +1,13 @@
+streamlit>=1.28
+pandas>=1.5
+numpy>=1.23
+scipy>=1.9
+matplotlib>=3.6
+
+# Statistical analysis
+statsmodels>=0.13
+pingouin>=0.5
+scikit-posthocs>=0.7
+
+# Testing
+pytest>=7.0
