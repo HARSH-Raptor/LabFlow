@@ -12,7 +12,6 @@ This tool is intended to assist in statistical analysis and decision-making.
 It does not replace consultation with a statistician for complex experimental designs.
 -----------------------------------------------------------------------------------------------------------------------------------
 NOTE- This project is licensed under the Apache License 2.0.
-
 Please cite LabFlow Github repository if you use this work in academic work. 
 -----------------------------------------------------------------------------------------------------------------------------------
 ##Features
