@@ -17,10 +17,9 @@ Please cite LabFlow Github repository if you use this work in academic work.
 ## Installation & Usage
 
 ```bash
-git clone https://github.com/yourusername/LabFlow.git
-cd LabFlow
-pip install -r requirements.txt
-streamlit run app.py
+Live link
+v1.0.0
+https://labflow25.streamlit.app/
 ```
 -----------------------------------------------------------------------------------------------------------------------------------
 ##Features
