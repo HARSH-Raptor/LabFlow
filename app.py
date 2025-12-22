@@ -52,18 +52,31 @@ section = st.sidebar.radio(
 # Utilities
 # =========================================================
 def to_long_format(df, group_cols, value_cols):
-    """
-    Convert wide table to long format:
-    - group columns → combined Group label
-    - value columns → Value
-    """
-
     df = df.copy()
+
+    # Normalize column names (CRITICAL for Excel-origin files)
+    df.columns = df.columns.astype(str).str.strip()
+
+    group_cols = [str(c).strip() for c in group_cols]
+    value_cols = [str(c).strip() for c in value_cols]
+
+    # Track original row
     df["__row_id__"] = np.arange(len(df))
 
-    # Remove overlaps safely
+    # Remove overlaps
     group_cols = list(dict.fromkeys(group_cols))
     value_cols = [c for c in value_cols if c not in group_cols]
+
+    # Validate existence
+    missing_groups = [c for c in group_cols if c not in df.columns]
+    missing_values = [c for c in value_cols if c not in df.columns]
+
+    if missing_groups or missing_values:
+        raise ValueError(
+            f"Invalid column selection.\n"
+            f"Missing group columns: {missing_groups}\n"
+            f"Missing value columns: {missing_values}"
+        )
 
     if not value_cols:
         raise ValueError("No valid value columns selected.")
@@ -84,6 +97,7 @@ def to_long_format(df, group_cols, value_cols):
     )
 
     return melted[["Group", "Value", "Variable", "__row_id__"]]
+
 
 # =========================================================
 # RANDOMIZER
@@ -284,3 +298,4 @@ st.sidebar.markdown("---")
 st.sidebar.write("statsmodels:", _HAS_STATSMODELS)
 st.sidebar.write("pingouin:", _HAS_PINGOUIN)
 st.sidebar.write("scikit-posthocs:", _HAS_SCIPOST)
+
