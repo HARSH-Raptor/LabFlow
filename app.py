@@ -295,21 +295,114 @@ elif section == "Statistical Tests & Post-hoc":
 # =========================================================
 # PLATE MAP
 # =========================================================
-elif section == "Plate map & Export":
-    st.header("Plate map")
+elif section == "Statistical Tests & Post-hoc":
+    st.header("Statistical tests & post-hoc analysis")
 
-    order = st.session_state.get("order", [])
-    if not order:
-        st.info("Generate run order first.")
+    df = st.session_state.get("uploaded_df")
+    if df is None:
+        st.info("Upload data first.")
+        st.stop()
+
+    groups = sorted(df["Group"].unique())
+    group_values = {
+        g: ensure_numeric_series(df[df["Group"] == g]["Value"]).values
+        for g in groups
+    }
+
+    # -----------------------------
+    # Assumption checks
+    # -----------------------------
+    st.subheader("Assumption checks")
+
+    shapiro_rows = []
+    for g, vals in group_values.items():
+        if len(vals) >= 3:
+            p = stats.shapiro(vals).pvalue
+        else:
+            p = np.nan
+        shapiro_rows.append({"Group": g, "Shapiro p": p})
+
+    shapiro_df = pd.DataFrame(shapiro_rows)
+    shapiro_df["Normal?"] = shapiro_df["Shapiro p"] >= 0.05
+    st.dataframe(shapiro_df)
+
+    try:
+        lev_stat, lev_p = stats.levene(*group_values.values())
+    except Exception:
+        lev_p = np.nan
+
+    st.write(
+        "Levene’s test p-value:",
+        format_pvalue(lev_p),
+        "(equal variances)" if lev_p >= 0.05 else "(unequal variances)",
+    )
+
+    normal = shapiro_df["Normal?"].all()
+    equal_var = lev_p >= 0.05
+
+    # -----------------------------
+    # Recommend global test
+    # -----------------------------
+    st.subheader("Recommended global test")
+
+    if len(groups) == 2:
+        if normal and equal_var:
+            recommended_test = "Student t-test"
+        elif normal:
+            recommended_test = "Welch t-test"
+        else:
+            recommended_test = "Mann–Whitney U"
     else:
-        plate = make_plate_map(order)
-        df_plate = pd.DataFrame(plate)
-        st.dataframe(df_plate)
-        st.download_button(
-            "Download plate CSV",
-            df_plate.to_csv(index=False),
-            "plate_map.csv",
+        if normal and equal_var:
+            recommended_test = "One-way ANOVA"
+        elif normal:
+            recommended_test = "Welch ANOVA"
+        else:
+            recommended_test = "Kruskal–Wallis"
+
+    st.info(f"Recommended test: **{recommended_test}**")
+
+    # -----------------------------
+    # Post-hoc analysis
+    # -----------------------------
+    st.subheader("Post-hoc analysis")
+
+    show_ph = st.checkbox("Enable post-hoc comparisons")
+
+    if show_ph:
+        suggestion = posthoc_auto_select_and_run(df, "Group", "Value")
+        suggested_method = suggestion.get("chosen")
+
+        st.write("Suggested post-hoc method:", f"**{suggested_method}**")
+
+        method = st.selectbox(
+            "Choose post-hoc method",
+            [
+                "Auto (recommended)",
+                "Tukey HSD",
+                "Games-Howell",
+                "Dunn (Bonferroni)",
+            ],
         )
+
+        if st.button("Run post-hoc"):
+            if method == "Auto (recommended)":
+                result = suggestion
+            else:
+                result = posthoc_auto_select_and_run(
+                    df, "Group", "Value", force_method=method
+                )
+
+            st.subheader("Post-hoc results")
+
+            if "error" in result:
+                st.error(result["error"])
+            else:
+                res_df = pd.DataFrame(result["results"])
+                for c in res_df.columns:
+                    if "p" in c.lower():
+                        res_df[c] = res_df[c].apply(format_pvalue)
+                st.dataframe(res_df)
 
 # =========================================================
 # Diagnostics
@@ -318,6 +411,7 @@ st.sidebar.markdown("---")
 st.sidebar.write("statsmodels:", _HAS_STATSMODELS)
 st.sidebar.write("pingouin:", _HAS_PINGOUIN)
 st.sidebar.write("scikit-posthocs:", _HAS_SCIPOST)
+
 
 
 
