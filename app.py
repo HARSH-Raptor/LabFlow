@@ -54,33 +54,50 @@ section = st.sidebar.radio(
 def to_long_format(df, group_cols, value_cols):
     df = df.copy()
 
-    # Normalize column names (CRITICAL for Excel-origin files)
-    df.columns = df.columns.astype(str).str.strip()
+    # ----------------------------------
+    # HARD SANITIZATION (CRITICAL)
+    # ----------------------------------
 
+    # Convert all column names to strings
+    df.columns = df.columns.map(str)
+
+    # Strip whitespace
+    df.columns = df.columns.str.strip()
+
+    # Make column names UNIQUE (KEY FIX)
+    if df.columns.duplicated().any():
+        df.columns = pd.io.parsers.ParserBase(
+            {"names": df.columns}
+        )._maybe_dedup_names(df.columns)
+
+    # Clean user selections
     group_cols = [str(c).strip() for c in group_cols]
     value_cols = [str(c).strip() for c in value_cols]
-
-    # Track original row
-    df["__row_id__"] = np.arange(len(df))
 
     # Remove overlaps
     group_cols = list(dict.fromkeys(group_cols))
     value_cols = [c for c in value_cols if c not in group_cols]
 
     # Validate existence
-    missing_groups = [c for c in group_cols if c not in df.columns]
-    missing_values = [c for c in value_cols if c not in df.columns]
+    missing_g = [c for c in group_cols if c not in df.columns]
+    missing_v = [c for c in value_cols if c not in df.columns]
 
-    if missing_groups or missing_values:
+    if missing_g or missing_v:
         raise ValueError(
             f"Invalid column selection.\n"
-            f"Missing group columns: {missing_groups}\n"
-            f"Missing value columns: {missing_values}"
+            f"Missing group columns: {missing_g}\n"
+            f"Missing value columns: {missing_v}"
         )
 
     if not value_cols:
         raise ValueError("No valid value columns selected.")
 
+    # Track original row
+    df["__row_id__"] = np.arange(len(df))
+
+    # ----------------------------------
+    # MELT (NOW SAFE)
+    # ----------------------------------
     melted = df.melt(
         id_vars=group_cols + ["__row_id__"],
         value_vars=value_cols,
@@ -90,6 +107,7 @@ def to_long_format(df, group_cols, value_cols):
 
     melted = melted.dropna(subset=["Value"])
 
+    # Combine group columns
     melted["Group"] = (
         melted[group_cols]
         .astype(str)
@@ -97,6 +115,7 @@ def to_long_format(df, group_cols, value_cols):
     )
 
     return melted[["Group", "Value", "Variable", "__row_id__"]]
+
 
 
 # =========================================================
@@ -298,4 +317,5 @@ st.sidebar.markdown("---")
 st.sidebar.write("statsmodels:", _HAS_STATSMODELS)
 st.sidebar.write("pingouin:", _HAS_PINGOUIN)
 st.sidebar.write("scikit-posthocs:", _HAS_SCIPOST)
+
 
