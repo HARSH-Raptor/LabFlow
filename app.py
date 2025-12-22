@@ -1,7 +1,7 @@
 # app.py
 """
-Streamlit UI (full-feature, revised)
-Run: streamlit run app.py
+LabFlow Streamlit App
+Run with: streamlit run app.py
 """
 
 import streamlit as st
@@ -9,8 +9,6 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-
-from scipy import stats
 
 from lab_randomizer import (
     generate_valid_pairs,
@@ -24,18 +22,20 @@ from lab_randomizer import (
     remove_outliers,
     posthoc_auto_select_and_run,
     format_pvalue,
-    ensure_numeric_series,
     _HAS_STATSMODELS,
     _HAS_PINGOUIN,
-    _HAS_SCIPOST
+    _HAS_SCIPOST,
 )
 
+# =========================================================
+# Page config
+# =========================================================
 st.set_page_config(page_title="LabFlow", layout="wide")
 st.title("LabFlow — Randomization, Error Propagation & Statistics")
 
-# ===============================
-# Sidebar
-# ===============================
+# =========================================================
+# Sidebar navigation
+# =========================================================
 section = st.sidebar.radio(
     "Section",
     [
@@ -48,31 +48,46 @@ section = st.sidebar.radio(
     ],
 )
 
-# ===============================
+# =========================================================
 # Utilities
-# ===============================
+# =========================================================
 def to_long_format(df, group_cols, value_cols):
-    long_df = df.copy()
-    long_df["__row_id__"] = np.arange(len(long_df))
+    """
+    Convert wide table to long format:
+    - group columns → combined Group label
+    - value columns → Value
+    """
 
-    melted = long_df.melt(
+    df = df.copy()
+    df["__row_id__"] = np.arange(len(df))
+
+    # Remove overlaps safely
+    group_cols = list(dict.fromkeys(group_cols))
+    value_cols = [c for c in value_cols if c not in group_cols]
+
+    if not value_cols:
+        raise ValueError("No valid value columns selected.")
+
+    melted = df.melt(
         id_vars=group_cols + ["__row_id__"],
         value_vars=value_cols,
-        var_name="Value_Column",
+        var_name="Variable",
         value_name="Value",
     )
 
-    for g in group_cols:
-        melted[g] = melted[g].astype(str)
+    melted = melted.dropna(subset=["Value"])
 
-    melted["Group"] = melted[group_cols].agg(" | ".join, axis=1)
-    melted["Value"] = pd.to_numeric(melted["Value"], errors="coerce")
+    melted["Group"] = (
+        melted[group_cols]
+        .astype(str)
+        .agg("_".join, axis=1)
+    )
 
-    return melted.dropna(subset=["Value"])
+    return melted[["Group", "Value", "Variable", "__row_id__"]]
 
-# ===============================
-# Randomizer
-# ===============================
+# =========================================================
+# RANDOMIZER
+# =========================================================
 if section == "Randomizer (pairs & run order)":
     st.header("Randomizer")
 
@@ -84,27 +99,47 @@ if section == "Randomizer (pairs & run order)":
 
     pairs = generate_valid_pairs(samples, controls)
 
-    st.subheader("Valid pairs")
-    st.write(pairs if pairs else "No pairs generated.")
+    st.subheader("Valid sample–control pairs")
+    if pairs:
+        st.write(", ".join(pairs))
+    else:
+        st.info("No valid pairs generated.")
 
     if st.button("Pick random run order"):
         st.session_state["order"] = random_run_order(pairs)
 
     order = st.session_state.get("order", [])
+
     if order:
-        st.table(pd.DataFrame({"Position": range(1, len(order) + 1), "Pair": order}))
+        df_order = pd.DataFrame(
+            {"Position": range(1, len(order) + 1), "Pair": order}
+        )
+        st.table(df_order)
+
         st.download_button(
-            "Download run sheet",
+            "Download run sheet (CSV)",
             export_csv_run_sheet(order),
             "run_sheet.csv",
         )
 
+    st.subheader("All possible permutations (if feasible)")
     total, perms = list_all_orders(pairs, limit=10000)
     st.write(f"Total permutations: {total:,}")
 
-# ===============================
-# Error propagation
-# ===============================
+    if perms:
+        idx = st.number_input(
+            "Show permutation #",
+            min_value=1,
+            max_value=len(perms),
+            value=1,
+        )
+        st.code(perms[idx - 1])
+    else:
+        st.info("Too many permutations to list.")
+
+# =========================================================
+# ERROR PROPAGATION
+# =========================================================
 elif section == "Error propagation":
     st.header("Error propagation")
 
@@ -114,29 +149,25 @@ elif section == "Error propagation":
     )
 
     if mode.startswith("Uniform"):
-        steps = st.number_input("Number of steps", 0, value=4)
-        pct = st.number_input("Per-step ±%", 0.0, value=10.0)
-
+        steps = st.number_input("Number of steps", min_value=0, value=4)
+        pct = st.number_input("Per-step ±%", min_value=0.0, value=10.0)
         summary = error_propagation_summary_uniform(steps, pct / 100)
         st.write(summary)
-
     else:
         vals = st.text_area("Comma-separated ±%", "10,8,3,5")
-        v_list = [float(x) / 100 for x in vals.split(",") if x.strip()]
+        v_list = [float(v) / 100 for v in vals.split(",") if v.strip()]
         summary = compute_error_distribution(v_list)
         st.write(summary)
 
-# ===============================
-# Upload & Preview CSV
-# ===============================
+# =========================================================
+# UPLOAD & PREVIEW
+# =========================================================
 elif section == "Upload & Preview CSV":
     st.header("Upload CSV")
 
     uploaded = st.file_uploader("Upload CSV", type=["csv", "txt"])
-
     if uploaded:
-        df_raw = read_csv_bytes(uploaded.getvalue())
-        st.session_state["raw_df"] = df_raw
+        st.session_state["raw_df"] = read_csv_bytes(uploaded.getvalue())
 
     df_raw = st.session_state.get("raw_df")
 
@@ -154,15 +185,12 @@ elif section == "Upload & Preview CSV":
         if group_cols and value_cols:
             long_df = to_long_format(df_raw, group_cols, value_cols)
             st.session_state["uploaded_df"] = long_df
-            st.session_state["group_col"] = "Group"
-            st.session_state["value_col"] = "Value"
-
             st.success("Data prepared in long format")
             st.dataframe(long_df.head(20))
 
-# ===============================
-# Distribution & Outliers
-# ===============================
+# =========================================================
+# DISTRIBUTION & OUTLIERS
+# =========================================================
 elif section == "Distribution & Outliers":
     st.header("Distribution & Outliers")
 
@@ -172,16 +200,15 @@ elif section == "Distribution & Outliers":
     else:
         groups = sorted(df["Group"].unique())
         selected = st.multiselect("Select groups", groups, default=groups)
-
         plot_df = df[df["Group"].isin(selected)]
 
         st.subheader("Distribution (KDE)")
-        fig, ax = plt.subplots(figsize=(8, 4))
+        fig, ax = plt.subplots(figsize=(9, 4))
         sns.kdeplot(data=plot_df, x="Value", hue="Group", ax=ax)
         st.pyplot(fig)
 
         st.subheader("Group comparison")
-        fig, ax = plt.subplots(figsize=(8, 4))
+        fig, ax = plt.subplots(figsize=(9, 4))
         sns.violinplot(data=plot_df, x="Group", y="Value", ax=ax)
         st.pyplot(fig)
 
@@ -193,13 +220,7 @@ elif section == "Distribution & Outliers":
                 df, "Group", "Value", method=method
             )
             st.session_state["last_cleaned_df"] = cleaned
-
-            st.subheader("Outliers removed (summary)")
             st.json(report)
-
-            if "removed_table" in report and not report["removed_table"].empty:
-                st.subheader("Removed outliers (detailed)")
-                st.dataframe(report["removed_table"])
 
         if st.button("Preview before vs after"):
             cleaned = st.session_state.get("last_cleaned_df")
@@ -217,9 +238,9 @@ elif section == "Distribution & Outliers":
                 st.session_state["uploaded_df"] = cleaned
                 st.success("Outliers permanently removed")
 
-# ===============================
-# Statistical Tests & Post-hoc
-# ===============================
+# =========================================================
+# STATISTICS
+# =========================================================
 elif section == "Statistical Tests & Post-hoc":
     st.header("Statistical tests")
 
@@ -227,10 +248,7 @@ elif section == "Statistical Tests & Post-hoc":
     if df is None:
         st.info("Upload data first.")
     else:
-        result = posthoc_auto_select_and_run(
-            df, "Group", "Value"
-        )
-
+        result = posthoc_auto_select_and_run(df, "Group", "Value")
         st.write("Chosen method:", result.get("method", result.get("chosen")))
 
         if "results" in result:
@@ -240,9 +258,9 @@ elif section == "Statistical Tests & Post-hoc":
                     tab[c] = tab[c].apply(format_pvalue)
             st.dataframe(tab)
 
-# ===============================
-# Plate map & Export
-# ===============================
+# =========================================================
+# PLATE MAP
+# =========================================================
 elif section == "Plate map & Export":
     st.header("Plate map")
 
@@ -251,16 +269,17 @@ elif section == "Plate map & Export":
         st.info("Generate run order first.")
     else:
         plate = make_plate_map(order)
-        st.dataframe(pd.DataFrame(plate))
+        df_plate = pd.DataFrame(plate)
+        st.dataframe(df_plate)
         st.download_button(
             "Download plate CSV",
-            pd.DataFrame(plate).to_csv(index=False),
+            df_plate.to_csv(index=False),
             "plate_map.csv",
         )
 
-# ===============================
-# Sidebar diagnostics
-# ===============================
+# =========================================================
+# Diagnostics
+# =========================================================
 st.sidebar.markdown("---")
 st.sidebar.write("statsmodels:", _HAS_STATSMODELS)
 st.sidebar.write("pingouin:", _HAS_PINGOUIN)
