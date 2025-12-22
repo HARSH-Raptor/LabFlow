@@ -274,53 +274,148 @@ elif section == "Statistical Tests & Post-hoc":
 
         paired = st.checkbox("Paired?", value=False)
 
-        groups = df[group_col].unique()
-        group_values = [
-            ensure_numeric_series(df[df[group_col] == g][value_col]).values
-            for g in groups
-        ]
+        # -----------------------------
+        # Prepare groups safely
+        # -----------------------------
+        groups = sorted(df[group_col].unique())
+        group_values = {}
+        size_rows = []
 
+        for g in groups:
+            vals = ensure_numeric_series(
+                df[df[group_col] == g][value_col]
+            ).dropna().values
+
+            if len(vals) > 0:
+                group_values[g] = vals
+
+            size_rows.append({
+                "Group": g,
+                "n": len(vals)
+            })
+
+        size_df = pd.DataFrame(size_rows)
+        st.subheader("Sample sizes")
+        st.table(size_df)
+
+        valid_groups = [g for g, v in group_values.items() if len(v) >= 2]
+
+        if len(valid_groups) < 2:
+            st.error("At least two groups with n ≥ 2 are required for statistical testing.")
+            st.stop()
+
+        # -----------------------------
+        # Assumption checks
+        # -----------------------------
         st.subheader("Assumption checks")
 
         shapiro_rows = []
-        for g in groups:
-            vals = ensure_numeric_series(df[df[group_col] == g][value_col]).values
+        normal_flags = []
+
+        for g in valid_groups:
+            vals = group_values[g]
             sh = shapiro_test(vals)
+            p = sh.get("pvalue")
+
+            normal = (p is not None and p >= 0.05)
+            normal_flags.append(normal)
+
             shapiro_rows.append({
                 "Group": g,
-                "Shapiro p": format_pvalue(sh.get("pvalue"))
+                "n": len(vals),
+                "Shapiro p": format_pvalue(p),
+                "Normal?": "Yes" if normal else "No"
             })
+
         st.table(pd.DataFrame(shapiro_rows))
 
-        lev = levene_test(group_values)
-        st.write("Levene p:", format_pvalue(lev.get("p")))
+        # Levene test (variance equality)
+        try:
+            lev = levene_test([group_values[g] for g in valid_groups])
+            lev_p = lev.get("p")
+            equal_var = lev_p is not None and lev_p >= 0.05
+            st.write("Levene p:", format_pvalue(lev_p))
+        except Exception:
+            lev_p = None
+            equal_var = False
+            st.warning("Levene test could not be computed.")
 
-        st.subheader("Post-hoc selection")
+        # -----------------------------
+        # Recommend global test
+        # -----------------------------
+        if len(valid_groups) == 2:
+            if all(normal_flags) and equal_var:
+                recommended_global = "t-test"
+            elif all(normal_flags):
+                recommended_global = "Welch's t-test"
+            else:
+                recommended_global = "Mann–Whitney U"
+        else:
+            if all(normal_flags) and equal_var:
+                recommended_global = "One-way ANOVA"
+            else:
+                recommended_global = "Kruskal–Wallis"
 
-        result = posthoc_auto_select_and_run(
-            df, group_col, value_col, paired=paired
+        st.subheader("Recommended global test")
+        st.info(recommended_global)
+
+        # -----------------------------
+        # Post-hoc selection
+        # -----------------------------
+        st.subheader("Post-hoc analysis")
+
+        auto_result = posthoc_auto_select_and_run(
+            df[df[group_col].isin(valid_groups)],
+            group_col,
+            value_col,
+            paired=paired
         )
 
-        st.info(f"Recommended: {result.get('chosen')}")
+        st.write("Auto-selected post-hoc:", auto_result.get("chosen"))
 
         method_choice = st.selectbox(
             "Post-hoc method",
-            ["Auto (recommended)", "Tukey HSD", "Games-Howell", "Dunn (Bonferroni)", "Bonferroni pairwise"]
+            [
+                "Auto (recommended)",
+                "Tukey HSD",
+                "Games-Howell",
+                "Dunn (Bonferroni)",
+                "Bonferroni pairwise"
+            ]
         )
 
         if st.button("Run post-hoc"):
-            if method_choice != "Auto (recommended)":
-                result["chosen"] = method_choice.lower()
+            if method_choice == "Auto (recommended)":
+                result = auto_result
+            else:
+                result = posthoc_auto_select_and_run(
+                    df[df[group_col].isin(valid_groups)],
+                    group_col,
+                    value_col,
+                    paired=paired,
+                    force=method_choice
+                )
 
-            st.subheader("Results")
-            if "results" in result:
+            st.subheader("Post-hoc results")
+
+            if "error" in result:
+                st.error(result["error"])
+
+            elif isinstance(result.get("results"), list):
                 tab = pd.DataFrame(result["results"])
-                for c in tab.columns:
-                    if "p" in c.lower():
-                        tab[c] = tab[c].apply(format_pvalue)
-                st.dataframe(tab)
+
+                if tab.empty:
+                    st.info("No significant pairwise differences found.")
+                else:
+                    for c in tab.columns:
+                        if "p" in c.lower():
+                            tab[c] = tab[c].apply(format_pvalue)
+
+                    st.dataframe(tab)
+
             else:
                 st.write(result)
+
 
 # ==================================================
 # PLATE MAP
@@ -347,3 +442,4 @@ st.sidebar.markdown("---")
 st.sidebar.write("statsmodels:", _HAS_STATSMODELS)
 st.sidebar.write("pingouin:", _HAS_PINGOUIN)
 st.sidebar.write("scikit-posthocs:", _HAS_SCIPOST)
+
