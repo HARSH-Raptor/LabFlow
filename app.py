@@ -276,26 +276,6 @@ elif section == "Distribution & Outliers":
 # STATISTICS
 # =========================================================
 elif section == "Statistical Tests & Post-hoc":
-    st.header("Statistical tests")
-
-    df = st.session_state.get("uploaded_df")
-    if df is None:
-        st.info("Upload data first.")
-    else:
-        result = posthoc_auto_select_and_run(df, "Group", "Value")
-        st.write("Chosen method:", result.get("method", result.get("chosen")))
-
-        if "results" in result:
-            tab = pd.DataFrame(result["results"])
-            for c in tab.columns:
-                if "p" in c.lower():
-                    tab[c] = tab[c].apply(format_pvalue)
-            st.dataframe(tab)
-
-# =========================================================
-# PLATE MAP
-# =========================================================
-elif section == "Statistical Tests & Post-hoc":
     st.header("Statistical tests & post-hoc analysis")
 
     df = st.session_state.get("uploaded_df")
@@ -404,6 +384,25 @@ elif section == "Statistical Tests & Post-hoc":
                         res_df[c] = res_df[c].apply(format_pvalue)
                 st.dataframe(res_df)
 
+
+# =========================================================
+# PLATE MAP
+# =========================================================
+elif section == "Statistical Tests & Post-hoc":
+    st.header("Statistical tests & post-hoc analysis")
+
+    df = st.session_state.get("uploaded_df")
+    if df is None:
+        st.info("Upload data first.")
+        st.stop()
+
+    groups = sorted(df["Group"].unique())
+    group_values = {
+        g: ensure_numeric_series(df[df["Group"] == g]["Value"]).values
+        for g in groups
+    }
+
+
 # =========================================================
 # Diagnostics
 # =========================================================
@@ -411,6 +410,7 @@ st.sidebar.markdown("---")
 st.sidebar.write("statsmodels:", _HAS_STATSMODELS)
 st.sidebar.write("pingouin:", _HAS_PINGOUIN)
 st.sidebar.write("scikit-posthocs:", _HAS_SCIPOST)
+
 
 
 
