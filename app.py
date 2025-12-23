@@ -133,6 +133,7 @@ if section == "Randomizer (pairs & run order)":
     else:
         st.info("Too many permutations to list.")
 
+
 # ==================================================
 # ERROR PROPAGATION
 # ==================================================
@@ -147,14 +148,26 @@ elif section == "Error propagation":
     if mode.startswith("Uniform"):
         steps = st.number_input("Steps", min_value=0, value=4)
         pct = st.number_input("±% per step", min_value=0.0, value=10.0)
+
         summary = error_propagation_summary_uniform(steps, pct / 100)
-        st.json(summary)
+
+        summary_df = pd.DataFrame(
+            list(summary.items()),
+            columns=["Metric", "Value"]
+        )
+        st.table(summary_df)
 
     else:
         paste = st.text_area("Comma-separated ±%", "10,8,3,5")
-        v_list = [float(x)/100 for x in paste.split(",") if x.strip()]
+        v_list = [float(x) / 100 for x in paste.split(",") if x.strip()]
+
         summary = compute_error_distribution(v_list)
-        st.json(summary)
+
+        summary_df = pd.DataFrame(
+            list(summary.items()),
+            columns=["Metric", "Value"]
+        )
+        st.table(summary_df)
 
 # ==================================================
 # UPLOAD & PREVIEW
@@ -442,4 +455,5 @@ st.sidebar.markdown("---")
 st.sidebar.write("statsmodels:", _HAS_STATSMODELS)
 st.sidebar.write("pingouin:", _HAS_PINGOUIN)
 st.sidebar.write("scikit-posthocs:", _HAS_SCIPOST)
+
 
