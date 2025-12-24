@@ -241,6 +241,8 @@ elif section == "Upload & Preview CSV":
             st.session_state["uploaded_df"] = long_df
             st.session_state["group_col"] = "Group"
             st.session_state["value_col"] = "Value"
+            report = st.session_state.get("group_validation_report")
+
 
             st.subheader("Prepared data")
             st.dataframe(long_df.head(20))
@@ -525,6 +527,7 @@ st.sidebar.markdown("---")
 st.sidebar.write("statsmodels:", _HAS_STATSMODELS)
 st.sidebar.write("pingouin:", _HAS_PINGOUIN)
 st.sidebar.write("scikit-posthocs:", _HAS_SCIPOST)
+
 
 
 
