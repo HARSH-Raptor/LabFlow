@@ -18,14 +18,14 @@ Please cite LabFlow Github repository if you use this work in academic work.
 
 ```bash
 Live link
-v1.0.0
+v1.1.0
 https://labflow25.streamlit.app/
 ```
 -----------------------------------------------------------------------------------------------------------------------------------
 ##Features
 
 - CSV-based data input
-- Automatic distribution analysis (normal vs non-normal)
+- Automatic distribution analysis (normal vs non-normal) and distribution plots download in vector form. 
 - Outlier detection and transparent removal reporting
 - Assumption-aware test selection:
   - ANOVA / Kruskal–Wallis
@@ -60,15 +60,21 @@ The input CSV file must contain **two columns**:
 | Group | Experimental group or condition |
 | Value | Measured numeric value |
 
+NOTE - 
+in the "groups" column, all the conditions or the groups having the same name, are considered to be the same group. 
+for example - my group column can have multiple conditions or groups like - sample 1, control, sample 2 etc. You cannot label the samples/controls differently like - sample 1, sample 2, sample 3 or control 1, control 2 because in that case, sample 1 and sample 2 will be considered different groups, ijnstead of being considered under the same group "samples". 
+To make it easier to understand, I have given an example below. 
+
+you can have multiple groups in the "group" column since different names are considered to be different groups. 
+in the example below, there are three groups - control, treatment and sample. Note that I did not label anything as, treatment1, sample1, sample2, because that would become an entirely new group instead of being included "under" samples.  
 Example:
 ```csv
 Group,Value
 Control,5.2
 Control,5.4
-
-
-
-
-
 Treatment,8.1
 Treatment,8.3
+sample, 1.2
+sample, 2.1
+sample, 1.1
+sample, 1.4
