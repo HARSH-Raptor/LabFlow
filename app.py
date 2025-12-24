@@ -272,12 +272,11 @@ elif section == "Upload & Preview CSV":
             st.dataframe(long_df.head(20))
             st.success("Data loaded and formatted.")
 
-
-
-
 # ==================================================
 # DISTRIBUTION & OUTLIERS
 # ==================================================
+
+
 elif section == "Distribution & Outliers":
     st.header("Distribution & Outliers")
 
@@ -552,6 +551,7 @@ st.sidebar.markdown("---")
 st.sidebar.write("statsmodels:", _HAS_STATSMODELS)
 st.sidebar.write("pingouin:", _HAS_PINGOUIN)
 st.sidebar.write("scikit-posthocs:", _HAS_SCIPOST)
+
 
 
 
