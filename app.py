@@ -228,35 +228,16 @@ elif section == "Upload & Preview CSV":
 
         if group_cols and value_cols:
             long_df = to_long_format(df_raw, group_cols, value_cols)
-            elif section == "Upload & Preview CSV":
-    st.header("Upload CSV")
 
-    uploaded = st.file_uploader("Upload CSV", type=["csv", "txt"])
-
-    if uploaded:
-        df_raw = read_csv_bytes(uploaded.getvalue())
-        st.session_state["raw_df"] = df_raw
-
-    df_raw = st.session_state.get("raw_df")
-
-    if df_raw is not None:
-        st.subheader("Preview")
-        st.dataframe(df_raw.head(50))
-
-        group_cols = st.multiselect("Group column(s)", df_raw.columns)
-        value_cols = st.multiselect("Value column(s)", df_raw.columns)
-
-        if group_cols and value_cols:
-            long_df = to_long_format(df_raw, group_cols, value_cols)
+            # ---- validation report ----
             report = long_df.attrs.get("group_validation_report")
+            if report is not None:
+                bad = report[report["Status"] != "OK"]
+                if not bad.empty:
+                    st.warning("Some groups had insufficient observations")
+                    st.table(bad)
 
-if report is not None:
-    bad = report[report["Status"] != "OK"]
-    if not bad.empty:
-        st.warning("Some groups had insufficient observations")
-        st.table(bad)
-
-
+            # ---- store prepared data ----
             st.session_state["uploaded_df"] = long_df
             st.session_state["group_col"] = "Group"
             st.session_state["value_col"] = "Value"
@@ -265,13 +246,6 @@ if report is not None:
             st.dataframe(long_df.head(20))
             st.success("Data loaded and formatted.")
 
-            st.session_state["uploaded_df"] = long_df
-            st.session_state["group_col"] = "Group"
-            st.session_state["value_col"] = "Value"
-
-            st.subheader("Prepared data")
-            st.dataframe(long_df.head(20))
-            st.success("Data loaded and formatted.")
 
 # ==================================================
 # DISTRIBUTION & OUTLIERS
@@ -283,74 +257,90 @@ elif section == "Distribution & Outliers":
     if df is None:
         st.info("Upload data first.")
     else:
-        group_col = "Group"
-        value_col = "Value"
-
-        st.subheader("Group summary")
-        st.table(group_summary(df, group_col, value_col))
-
-        groups = sorted(df[group_col].unique())
+        groups = sorted(df["Group"].unique())
         selected = st.multiselect("Select groups", groups, default=groups)
-        plot_df = df[df[group_col].isin(selected)]
 
+        plot_df = df[df["Group"].isin(selected)]
+
+        # -------------------------------
+        # KDE distribution
+        # -------------------------------
         st.subheader("Distribution (KDE)")
-        fig, ax = plt.subplots()
-        sns.kdeplot(data=plot_df, x=value_col, hue=group_col, ax=ax)
+        fig, ax = plt.subplots(figsize=(8, 4))
+        sns.kdeplot(data=plot_df, x="Value", hue="Group", ax=ax)
         st.pyplot(fig)
 
-        st.subheader("Comparison (violin)")
-        fig, ax = plt.subplots()
-        sns.violinplot(data=plot_df, x=group_col, y=value_col, ax=ax)
+        # SVG download
+        buf = io.BytesIO()
+        fig.savefig(buf, format="svg", bbox_inches="tight")
+        st.download_button(
+            "Download KDE plot (SVG)",
+            buf.getvalue(),
+            file_name="distribution_kde.svg",
+            mime="image/svg+xml",
+        )
+
+        # -------------------------------
+        # Violin plot
+        # -------------------------------
+        st.subheader("Group comparison")
+        fig, ax = plt.subplots(figsize=(8, 4))
+        sns.violinplot(data=plot_df, x="Group", y="Value", ax=ax)
         st.pyplot(fig)
 
+        buf = io.BytesIO()
+        fig.savefig(buf, format="svg", bbox_inches="tight")
+        st.download_button(
+            "Download violin plot (SVG)",
+            buf.getvalue(),
+            file_name="group_violin.svg",
+            mime="image/svg+xml",
+        )
+
+        # -------------------------------
+        # Outlier detection
+        # -------------------------------
         st.subheader("Outlier detection")
         method = st.selectbox("Method", ["IQR", "Z", "Grubbs"])
 
-        if st.button("Detect outliers (preview)"):
-            cleaned, report = remove_outliers(df, group_col, value_col, method)
+        if st.button("Detect outliers"):
+            cleaned, report = remove_outliers(
+                df, "Group", "Value", method=method
+            )
             st.session_state["last_cleaned_df"] = cleaned
 
-            st.subheader("Outlier summary")
-            summary_rows = []
-            for k, v in report.items():
-                if isinstance(v, dict) and "removed_count" in v:
-                    summary_rows.append({
-                        "Group": k,
-                        "Removed": v["removed_count"]
-                    })
-            st.table(pd.DataFrame(summary_rows))
+            st.subheader("Outliers removed (summary)")
+            st.json(report)
 
             if "removed_table" in report and not report["removed_table"].empty:
                 st.subheader("Removed outliers (detailed)")
                 st.dataframe(report["removed_table"])
 
-        col1, col2 = st.columns(2)
+        if st.button("Preview before vs after"):
+            cleaned = st.session_state.get("last_cleaned_df")
+            if cleaned is not None:
+                fig, ax = plt.subplots(1, 2, figsize=(12, 4))
+                sns.violinplot(data=df, x="Group", y="Value", ax=ax[0])
+                ax[0].set_title("Before")
+                sns.violinplot(data=cleaned, x="Group", y="Value", ax=ax[1])
+                ax[1].set_title("After")
+                st.pyplot(fig)
 
-        with col1:
-            if st.button("Preview before vs after"):
-                cleaned = st.session_state.get("last_cleaned_df")
-                if cleaned is not None:
-                    fig, ax = plt.subplots(1, 2, figsize=(12, 4))
-                    sns.violinplot(data=df, x=group_col, y=value_col, ax=ax[0])
-                    ax[0].set_title("Before")
-                    sns.violinplot(data=cleaned, x=group_col, y=value_col, ax=ax[1])
-                    ax[1].set_title("After")
-                    st.pyplot(fig)
-                    buf = io.BytesIO()
-fig.savefig(buf, format="svg", bbox_inches="tight")
-st.download_button(
-    "Download plot (SVG)",
-    buf.getvalue(),
-    file_name="distribution.svg",
-    mime="image/svg+xml",
-)
+                buf = io.BytesIO()
+                fig.savefig(buf, format="svg", bbox_inches="tight")
+                st.download_button(
+                    "Download before/after plot (SVG)",
+                    buf.getvalue(),
+                    file_name="outliers_before_after.svg",
+                    mime="image/svg+xml",
+                )
 
-        with col2:
-            if st.button("Apply removal"):
-                cleaned = st.session_state.get("last_cleaned_df")
-                if cleaned is not None:
-                    st.session_state["uploaded_df"] = cleaned
-                    st.success("Outliers removed.")
+        if st.button("Apply removal"):
+            cleaned = st.session_state.get("last_cleaned_df")
+            if cleaned is not None:
+                st.session_state["uploaded_df"] = cleaned
+                st.success("Outliers permanently removed")
+
 
 # ==================================================
 # STATISTICS & POST-HOC (RESTORED FULLY)
@@ -535,6 +525,7 @@ st.sidebar.markdown("---")
 st.sidebar.write("statsmodels:", _HAS_STATSMODELS)
 st.sidebar.write("pingouin:", _HAS_PINGOUIN)
 st.sidebar.write("scikit-posthocs:", _HAS_SCIPOST)
+
 
 
 
