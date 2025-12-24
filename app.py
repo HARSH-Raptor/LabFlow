@@ -230,13 +230,18 @@ elif section == "Upload & Preview CSV":
         if group_cols and value_cols:
             long_df = to_long_format(df_raw, group_cols, value_cols)
 
-            # ✅ CRITICAL FIX: make dataframe Arrow-safe
+            # 🔥 HARD RESET: remove ALL pandas metadata
             long_df = long_df.copy()
-            long_df["Group"] = long_df["Group"].astype(str)
-            long_df["Variable"] = long_df["Variable"].astype(str)
+            long_df.attrs = {}                  # <-- THIS was the real bug
+            long_df = long_df.reset_index(drop=True)
+
+            # force Arrow-safe dtypes
+            for c in long_df.columns:
+                if c != "Value":
+                    long_df[c] = long_df[c].astype(str)
             long_df["Value"] = pd.to_numeric(long_df["Value"], errors="coerce")
 
-            # ---- store prepared data ----
+            # store clean data
             st.session_state["uploaded_df"] = long_df
             st.session_state["group_col"] = "Group"
             st.session_state["value_col"] = "Value"
@@ -244,6 +249,7 @@ elif section == "Upload & Preview CSV":
             st.subheader("Prepared data")
             st.dataframe(long_df.head(20))
             st.success("Data loaded and formatted.")
+
 
 
 # ==================================================
@@ -524,6 +530,7 @@ st.sidebar.markdown("---")
 st.sidebar.write("statsmodels:", _HAS_STATSMODELS)
 st.sidebar.write("pingouin:", _HAS_PINGOUIN)
 st.sidebar.write("scikit-posthocs:", _HAS_SCIPOST)
+
 
 
 
