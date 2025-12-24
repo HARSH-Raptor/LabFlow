@@ -230,6 +230,12 @@ elif section == "Upload & Preview CSV":
         if group_cols and value_cols:
             long_df = to_long_format(df_raw, group_cols, value_cols)
 
+            # ✅ CRITICAL FIX: make dataframe Arrow-safe
+            long_df = long_df.copy()
+            long_df["Group"] = long_df["Group"].astype(str)
+            long_df["Variable"] = long_df["Variable"].astype(str)
+            long_df["Value"] = pd.to_numeric(long_df["Value"], errors="coerce")
+
             # ---- store prepared data ----
             st.session_state["uploaded_df"] = long_df
             st.session_state["group_col"] = "Group"
@@ -518,6 +524,7 @@ st.sidebar.markdown("---")
 st.sidebar.write("statsmodels:", _HAS_STATSMODELS)
 st.sidebar.write("pingouin:", _HAS_PINGOUIN)
 st.sidebar.write("scikit-posthocs:", _HAS_SCIPOST)
+
 
 
 
