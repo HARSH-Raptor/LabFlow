@@ -205,6 +205,7 @@ elif section == "Error propagation":
         )
         st.table(summary_df)
 
+
 # ==================================================
 # UPLOAD & PREVIEW
 # ==================================================
@@ -229,20 +230,10 @@ elif section == "Upload & Preview CSV":
         if group_cols and value_cols:
             long_df = to_long_format(df_raw, group_cols, value_cols)
 
-            # ---- validation report ----
-            st.session_state["group_validation_report"] = report
-            if report is not None:
-                bad = report[report["Status"] != "OK"]
-                if not bad.empty:
-                    st.warning("Some groups had insufficient observations")
-                    st.table(bad)
-
             # ---- store prepared data ----
             st.session_state["uploaded_df"] = long_df
             st.session_state["group_col"] = "Group"
             st.session_state["value_col"] = "Value"
-            report = st.session_state.get("group_validation_report")
-
 
             st.subheader("Prepared data")
             st.dataframe(long_df.head(20))
@@ -527,6 +518,7 @@ st.sidebar.markdown("---")
 st.sidebar.write("statsmodels:", _HAS_STATSMODELS)
 st.sidebar.write("pingouin:", _HAS_PINGOUIN)
 st.sidebar.write("scikit-posthocs:", _HAS_SCIPOST)
+
 
 
 
