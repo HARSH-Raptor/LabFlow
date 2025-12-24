@@ -9,6 +9,8 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import io
+
 
 from scipy import stats
 
@@ -205,10 +207,10 @@ elif section == "Error propagation":
         )
         st.table(summary_df)
 
+#=================================================
+#Upload and Preview section 
+#=================================================
 
-# ==================================================
-# UPLOAD & PREVIEW
-# ==================================================
 elif section == "Upload & Preview CSV":
     st.header("Upload CSV")
 
@@ -228,20 +230,40 @@ elif section == "Upload & Preview CSV":
         value_cols = st.multiselect("Value column(s)", df_raw.columns)
 
         if group_cols and value_cols:
-            long_df = to_long_format(df_raw, group_cols, value_cols)
 
-            # 🔥 HARD RESET: remove ALL pandas metadata
+            # ---------------------------------
+            # Detect already-long vs wide data
+            # ---------------------------------
+            is_already_long = (
+                len(group_cols) == 1
+                and len(value_cols) == 1
+                and group_cols[0] != value_cols[0]
+            )
+
+            if is_already_long:
+                long_df = df_raw[[group_cols[0], value_cols[0]]].copy()
+                long_df.columns = ["Group", "Value"]
+            else:
+                long_df = to_long_format(df_raw, group_cols, value_cols)
+
+            # ---------------------------------
+            # HARD RESET: Arrow / Streamlit fix
+            # ---------------------------------
             long_df = long_df.copy()
-            long_df.attrs = {}                  # <-- THIS was the real bug
+            long_df.attrs = {}          # critical
             long_df = long_df.reset_index(drop=True)
 
-            # force Arrow-safe dtypes
             for c in long_df.columns:
                 if c != "Value":
                     long_df[c] = long_df[c].astype(str)
-            long_df["Value"] = pd.to_numeric(long_df["Value"], errors="coerce")
 
-            # store clean data
+            long_df["Value"] = pd.to_numeric(
+                long_df["Value"], errors="coerce"
+            )
+
+            # ---------------------------------
+            # Store clean data
+            # ---------------------------------
             st.session_state["uploaded_df"] = long_df
             st.session_state["group_col"] = "Group"
             st.session_state["value_col"] = "Value"
@@ -249,6 +271,7 @@ elif section == "Upload & Preview CSV":
             st.subheader("Prepared data")
             st.dataframe(long_df.head(20))
             st.success("Data loaded and formatted.")
+
 
 
 
@@ -275,7 +298,6 @@ elif section == "Distribution & Outliers":
         sns.kdeplot(data=plot_df, x="Value", hue="Group", ax=ax)
         st.pyplot(fig)
 
-        # SVG download
         buf = io.BytesIO()
         fig.savefig(buf, format="svg", bbox_inches="tight")
         st.download_button(
@@ -530,6 +552,7 @@ st.sidebar.markdown("---")
 st.sidebar.write("statsmodels:", _HAS_STATSMODELS)
 st.sidebar.write("pingouin:", _HAS_PINGOUIN)
 st.sidebar.write("scikit-posthocs:", _HAS_SCIPOST)
+
 
 
 
