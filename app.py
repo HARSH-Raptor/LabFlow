@@ -230,7 +230,7 @@ elif section == "Upload & Preview CSV":
             long_df = to_long_format(df_raw, group_cols, value_cols)
 
             # ---- validation report ----
-            report = long_df.attrs.get("group_validation_report")
+            st.session_state["group_validation_report"] = report
             if report is not None:
                 bad = report[report["Status"] != "OK"]
                 if not bad.empty:
@@ -525,6 +525,7 @@ st.sidebar.markdown("---")
 st.sidebar.write("statsmodels:", _HAS_STATSMODELS)
 st.sidebar.write("pingouin:", _HAS_PINGOUIN)
 st.sidebar.write("scikit-posthocs:", _HAS_SCIPOST)
+
 
 
 
