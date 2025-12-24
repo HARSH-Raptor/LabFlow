@@ -59,15 +59,21 @@ section = st.sidebar.radio(
 # --------------------------------------------------
 def to_long_format(df, group_cols, value_cols):
     df = df.copy()
+
+    # Strip column names (prevents invisible bugs)
+    df.columns = df.columns.str.strip()
+
+    # Track original row
     df["__row_id__"] = np.arange(len(df))
 
     # Remove overlaps safely
     group_cols = list(dict.fromkeys(group_cols))
     value_cols = [c for c in value_cols if c not in group_cols]
 
-    if not value_cols:
-        raise ValueError("No valid value columns selected.")
+    if len(value_cols) == 0:
+        raise ValueError("No valid value columns selected after removing overlaps.")
 
+    # Melt
     melted = df.melt(
         id_vars=group_cols + ["__row_id__"],
         value_vars=value_cols,
@@ -75,15 +81,45 @@ def to_long_format(df, group_cols, value_cols):
         value_name="Value",
     )
 
-    melted = melted.dropna(subset=["Value"])
+    # ✅ EMPTY CELLS → ZERO (as requested)
+    melted["Value"] = pd.to_numeric(melted["Value"], errors="coerce").fillna(0)
 
+    # Combine group columns into one Group label
     melted["Group"] = (
         melted[group_cols]
         .astype(str)
-        .agg("_".join, axis=1)
+        .apply(lambda x: "_".join(x), axis=1)
     )
 
+    # -------------------------------
+    # GROUP SIZE VALIDATION
+    # -------------------------------
+    group_counts = melted.groupby("Group")["Value"].count()
+
+    warn_groups = group_counts[group_counts < 3]
+    drop_groups = group_counts[group_counts < 2]
+
+    # Store report for UI
+    melted.attrs["group_validation_report"] = pd.DataFrame({
+        "Group": group_counts.index,
+        "Observations": group_counts.values,
+        "Status": [
+            (
+                "Excluded (<2 observations)"
+                if g in drop_groups.index
+                else "Warning (<3 observations)"
+                if g in warn_groups.index
+                else "OK"
+            )
+            for g in group_counts.index
+        ]
+    })
+
+    #Remove groups with <2 observations
+    melted = melted[~melted["Group"].isin(drop_groups.index)]
+
     return melted[["Group", "Value", "Variable", "__row_id__"]]
+
 
 # ==================================================
 # RANDOMIZER
@@ -192,6 +228,42 @@ elif section == "Upload & Preview CSV":
 
         if group_cols and value_cols:
             long_df = to_long_format(df_raw, group_cols, value_cols)
+            elif section == "Upload & Preview CSV":
+    st.header("Upload CSV")
+
+    uploaded = st.file_uploader("Upload CSV", type=["csv", "txt"])
+
+    if uploaded:
+        df_raw = read_csv_bytes(uploaded.getvalue())
+        st.session_state["raw_df"] = df_raw
+
+    df_raw = st.session_state.get("raw_df")
+
+    if df_raw is not None:
+        st.subheader("Preview")
+        st.dataframe(df_raw.head(50))
+
+        group_cols = st.multiselect("Group column(s)", df_raw.columns)
+        value_cols = st.multiselect("Value column(s)", df_raw.columns)
+
+        if group_cols and value_cols:
+            long_df = to_long_format(df_raw, group_cols, value_cols)
+            report = long_df.attrs.get("group_validation_report")
+
+if report is not None:
+    bad = report[report["Status"] != "OK"]
+    if not bad.empty:
+        st.warning("Some groups had insufficient observations")
+        st.table(bad)
+
+
+            st.session_state["uploaded_df"] = long_df
+            st.session_state["group_col"] = "Group"
+            st.session_state["value_col"] = "Value"
+
+            st.subheader("Prepared data")
+            st.dataframe(long_df.head(20))
+            st.success("Data loaded and formatted.")
 
             st.session_state["uploaded_df"] = long_df
             st.session_state["group_col"] = "Group"
@@ -264,6 +336,14 @@ elif section == "Distribution & Outliers":
                     sns.violinplot(data=cleaned, x=group_col, y=value_col, ax=ax[1])
                     ax[1].set_title("After")
                     st.pyplot(fig)
+                    buf = io.BytesIO()
+fig.savefig(buf, format="svg", bbox_inches="tight")
+st.download_button(
+    "Download plot (SVG)",
+    buf.getvalue(),
+    file_name="distribution.svg",
+    mime="image/svg+xml",
+)
 
         with col2:
             if st.button("Apply removal"):
@@ -455,5 +535,6 @@ st.sidebar.markdown("---")
 st.sidebar.write("statsmodels:", _HAS_STATSMODELS)
 st.sidebar.write("pingouin:", _HAS_PINGOUIN)
 st.sidebar.write("scikit-posthocs:", _HAS_SCIPOST)
+
 
 
