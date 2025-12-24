@@ -336,7 +336,7 @@ elif section == "Distribution & Outliers":
             st.session_state["last_cleaned_df"] = cleaned
 
             st.subheader("Outliers removed (summary)")
-            st.json(report)
+            
 
             if "removed_table" in report and not report["removed_table"].empty:
                 st.subheader("Removed outliers (detailed)")
@@ -551,6 +551,7 @@ st.sidebar.markdown("---")
 st.sidebar.write("statsmodels:", _HAS_STATSMODELS)
 st.sidebar.write("pingouin:", _HAS_PINGOUIN)
 st.sidebar.write("scikit-posthocs:", _HAS_SCIPOST)
+
 
 
 
