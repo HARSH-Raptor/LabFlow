@@ -16,6 +16,8 @@ Please cite LabFlow Github repository if you use this work in academic work.
 -----------------------------------------------------------------------------------------------------------------------------------
 ## Installation & Usage
 
+[![DOI](https://zenodo.org/badge/1115710912.svg)](https://doi.org/10.5281/zenodo.18046274)
+
 ```bash
 Live link
 v1.1.0
