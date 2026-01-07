@@ -140,77 +140,63 @@ def _product(values: List[float]) -> float:
         p *= v
     return p
 
+def error_propagation_summary_uniform(steps, pct):
+    """
+    pct should be a fraction (e.g. 0.10 for 10%)
+    """
+    if steps == 0:
+        return {
+            "Steps": 0,
+            "Per-step uncertainty (%)": 0.0,
+            "Best case total error (%)": 0.0,
+            "Worst-case total error (%)": 0.0,
+            "Total uncertainty range (%)": "±0.0"
+        }
 
-def compute_error_distribution(v_list: List[float],
-                               enumerate_limit: int = 2 ** 16,
-                               mc_samples: int = 10000,
-                               random_seed: Optional[int] = None) -> Dict[str, Any]:
-    if random_seed is not None:
-        random.seed(random_seed)
-        np.random.seed(random_seed)
-
-    n = len(v_list)
-    combinations = 2 ** n
-    worst_mult = _product([1.0 + v for v in v_list])
-    best_mult = _product([1.0 - v for v in v_list])
-
-    if combinations <= enumerate_limit:
-        outcomes = []
-        for signs in itertools.product([1, -1], repeat=n):
-            mult = 1.0
-            for s, v in zip(signs, v_list):
-                mult *= (1.0 + s * v)
-            outcomes.append(mult)
-        samples = np.array(outcomes)
-        mode = 'enumeration'
-    else:
-        samples = []
-        for _ in range(mc_samples):
-            signs = np.random.choice([1, -1], size=n)
-            mult = np.prod(1.0 + signs * np.array(v_list))
-            samples.append(mult)
-        samples = np.array(samples)
-        mode = 'montecarlo'
-
-    contributions = []
-    for i, v in enumerate(v_list):
-        mult_no_i = _product([1.0 + vj for j, vj in enumerate(v_list) if j != i])
-        contrib_frac = 0.0
-        if worst_mult != 0:
-            contrib_frac = (worst_mult - mult_no_i) / worst_mult
-        contributions.append({'step': i + 1, 'v': v, 'contribution_fraction': contrib_frac})
+    total_uncertainty = np.sqrt(steps) * pct * 100
 
     return {
-        'n': n,
-        'combinations': combinations,
-        'mode': mode,
-        'samples': samples,
-        'min_mult': float(np.min(samples)),
-        'max_mult': float(np.max(samples)),
-        'median_mult': float(np.median(samples)),
-        'p05_mult': float(np.percentile(samples, 5)),
-        'p95_mult': float(np.percentile(samples, 95)),
-        'worst_mult': worst_mult,
-        'best_mult': best_mult,
-        'v_list': v_list,
-        'contributions': contributions
+        "Steps": steps,
+        "Per-step uncertainty (%)": round(pct * 100, 3),
+        "Best case total error (%)": 0.0,
+        "Worst-case total error (%)": round(total_uncertainty, 3),
+        "Total uncertainty range (%)": f"±{round(total_uncertainty, 3)}"
     }
 
 
-def error_propagation_summary_uniform(steps: int, variability_fraction: float) -> Dict[str, Any]:
-    v_list = [variability_fraction] * steps
-    s = compute_error_distribution(v_list)
-    return {
-        'steps': steps,
-        'variability_fraction': variability_fraction,
-        'combinations': s['combinations'],
-        'worst_mult': s['worst_mult'],
-        'best_mult': s['best_mult'],
-        'worst_pct': (s['worst_mult'] - 1.0) * 100.0,
-        'best_pct': (s['best_mult'] - 1.0) * 100.0,
-        'summary': s
+def compute_error_distribution(v_list):
+    """
+    v_list should be fractions (e.g. 0.10 for 10%)
+    """
+    if len(v_list) == 0:
+        return {
+            "Steps": 0,
+            "Best case total error (%)": 0.0,
+            "Worst-case total error (%)": 0.0,
+            "Total uncertainty range (%)": "±0.0"
+        }
+
+    squared = np.square(v_list)
+    total_uncertainty = np.sqrt(np.sum(squared)) * 100
+
+    contribution_rows = []
+    for i, v in enumerate(v_list, start=1):
+        contribution = (v**2 / np.sum(squared)) * 100
+        contribution_rows.append({
+            "Step": i,
+            "Step uncertainty (%)": round(v * 100, 3),
+            "Contribution to total (%)": round(contribution, 2)
+        })
+
+    summary = {
+        "Steps": len(v_list),
+        "Best case total error (%)": 0.0,
+        "Worst-case total error (%)": round(total_uncertainty, 3),
+        "Total uncertainty range (%)": f"±{round(total_uncertainty, 3)}",
+        "Step-wise contributions": pd.DataFrame(contribution_rows)
     }
 
+    return summary
 
 # -------------------------
 # CSV helpers
@@ -564,3 +550,4 @@ def posthoc_auto_select_and_run(
 # -------------------------
 def ensure_numeric_series(s: pd.Series) -> pd.Series:
     return pd.to_numeric(s, errors='coerce').dropna()
+

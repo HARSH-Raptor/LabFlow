@@ -190,7 +190,7 @@ elif section == "Error propagation":
         summary = error_propagation_summary_uniform(steps, pct / 100)
 
         summary_df = pd.DataFrame(
-            list(summary.items()),
+            [(k, v) for k, v in summary.items()],
             columns=["Metric", "Value"]
         )
         st.table(summary_df)
@@ -201,11 +201,19 @@ elif section == "Error propagation":
 
         summary = compute_error_distribution(v_list)
 
+        contrib_df = summary.pop("Step-wise contributions")
+
         summary_df = pd.DataFrame(
-            list(summary.items()),
+            [(k, v) for k, v in summary.items()],
             columns=["Metric", "Value"]
         )
+
+        st.subheader("Overall error summary")
         st.table(summary_df)
+
+        st.subheader("Step-wise contribution to total uncertainty")
+        st.table(contrib_df)
+
 
 #=================================================
 #Upload and Preview section 
@@ -551,6 +559,7 @@ st.sidebar.markdown("---")
 st.sidebar.write("statsmodels:", _HAS_STATSMODELS)
 st.sidebar.write("pingouin:", _HAS_PINGOUIN)
 st.sidebar.write("scikit-posthocs:", _HAS_SCIPOST)
+
 
 
 
