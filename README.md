@@ -63,12 +63,8 @@ The input CSV file must contain **two columns**:
 | Value | Measured numeric value |
 
 NOTE - 
-in the "groups" column, all the conditions or the groups having the same name, are considered to be the same group. 
-for example - my group column can have multiple conditions or groups like - sample 1, control, sample 2 etc. You cannot label the samples/controls differently like - sample 1, sample 2, sample 3 or control 1, control 2 because in that case, sample 1 and sample 2 will be considered different groups, ijnstead of being considered under the same group "samples". 
-To make it easier to understand, I have given an example below. 
-
-you can have multiple groups in the "group" column since different names are considered to be different groups. 
-in the example below, there are three groups - control, treatment and sample. Note that I did not label anything as, treatment1, sample1, sample2, because that would become an entirely new group instead of being included "under" samples.  
+Information on the "Groups" column and how to use it. - There should be two columns in your csv file, one labelled as "group" and the other labelled as "value". In the group column, you can mention the types that you are processing, for eg. - sample, treatment, control. All the types that you mention will be treated as different categories. If you want to process different samples, then label all of them as "sample" only because mentioning them as sample1, sample2, etc will lead to them being mentioned as different categories. 
+I have provided the below example. 
 Example:
 ```csv
 Group,Value
